@@ -24,4 +24,4 @@ Vous pouvez aussi copier `.env.example` vers `.env` et y définir `MERAKI_DASHBO
 
 La clé doit avoir les droits de lecture sur les organisations, réseaux, appareils, clients et paramètres d'appliance/firewall. Elle est lue depuis l'environnement, n'est pas demandée dans la page web et n'est pas enregistrée par l'application.
 
-Les informations clients sont recherchées sur les 30 derniers jours. La classification de l'OS est celle fournie par Meraki et peut être absente ou ne plus refléter l'état actuel du terminal. Les organisations et réseaux non autorisés par la clé ne peuvent pas être inventoriés.
+Les informations clients sont recherchées sur les 30 derniers jours. La classification de l'OS est celle fournie par Meraki et peut être absente ou ne plus refléter l'état actuel du Site. Les organisations et réseaux non autorisés par la clé ne peuvent pas être inventoriés.
