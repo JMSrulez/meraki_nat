@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inventaire NAT Meraki</title>
+  <style>
+    :root { color-scheme: light; --ink:#172a3a; --muted:#607384; --line:#dce5eb; --blue:#087e8b; --bg:#f4f7f9; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    header { background:#102a43; color:white; padding:30px max(24px,calc((100vw - 1280px)/2)); }
+    header h1 { margin:0 0 4px; font-size:26px; }
+    header p { margin:0; color:#d5e5ee; }
+    main { max-width:1280px; margin:24px auto; padding:0 20px; }
+    .toolbar,.notice,.network { background:white; border:1px solid var(--line); border-radius:12px; }
+    .toolbar { padding:18px 20px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
+    .toolbar p { margin:0; color:var(--muted); }
+    button { border:0; background:var(--blue); color:white; padding:11px 18px; border-radius:8px; font:inherit; font-weight:650; cursor:pointer; }
+    button:hover { background:#066772; }
+    button:disabled { opacity:.65; cursor:wait; }
+    .notice { margin:16px 0; padding:14px 18px; }
+    .error { border-color:#efb3ae; background:#fff6f5; color:#8b2c25; }
+    .warning { color:#785c18; background:#fffaf0; border-color:#efdfa9; }
+    .empty { color:var(--muted); }
+    .network { margin:18px 0; overflow:hidden; }
+    .network-head { padding:18px 20px; border-bottom:1px solid var(--line); }
+    .network-head h2 { margin:0; font-size:19px; }
+    .network-head p { margin:4px 0 0; color:var(--muted); }
+    .devices { font-size:13px; }
+    .device-list { display:grid; gap:7px; margin-top:8px; }
+    .device-row { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 16px; }
+    .uplink { white-space:nowrap; }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; min-width:1050px; }
+    th,td { text-align:left; vertical-align:top; padding:11px 12px; border-bottom:1px solid #e8eef2; }
+    th { background:#f7fafb; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:#536a7b; }
+    tr:last-child td { border-bottom:0; }
+    .kind { display:inline-block; padding:3px 8px; border-radius:20px; background:#e6f4f4; color:#075d66; font-size:12px; white-space:nowrap; }
+    code { font-size:13px; }
+    .subtle { color:var(--muted); font-size:12px; }
+    @media (max-width:700px) { header { padding:24px 20px; } .toolbar { align-items:flex-start; flex-direction:column; } button { width:100%; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Inventaire NAT Meraki</h1>
+    <p>Règles NAT des réseaux MX et clients connus pour les IP de destination</p>
+  </header>
+  <main>
+    <section class="toolbar">
+      <p>
+        {% if api_key_configured %}
+          Clé API configurée. L’inventaire couvre les organisations accessibles et les clients vus au cours des 30 derniers jours.
+        {% else %}
+          Aucune clé détectée. Définissez <code>MERAKI_DASHBOARD_API_KEY</code> dans l’environnement avant de lancer l’inventaire.
+        {% endif %}
+      </p>
+      <form method="post"><button type="submit" {% if not api_key_configured or (scan_status and not scan_status.done) %}disabled{% endif %}>Lancer l’inventaire</button></form>
+    </section>
+
+    {% if scan_status and not scan_status.done %}
+      <section class="notice" id="scan-progress" data-scan-id="{{ request.args.get('scan_id', '') }}" role="status" aria-live="polite">
+        <strong id="scan-message">{{ scan_status.message }}</strong>
+        <progress id="scan-bar" max="{{ scan_status.total if scan_status.total else 1 }}" value="{{ scan_status.current }}" style="display:block;width:100%;margin-top:10px"></progress>
+        <div class="subtle" id="scan-detail">Le scan examine les organisations accessibles dans Meraki Dashboard.</div>
+      </section>
+    {% endif %}
+
+    {% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+    {% for warning in warnings %}<div class="notice warning">{{ warning }}</div>{% endfor %}
+
+    {% if inventory is not none %}
+      {% if not inventory %}
+        <div class="notice empty">Aucun réseau contenant un appareil MX n’a été trouvé dans les organisations accessibles.</div>
+      {% endif %}
+      {% for network in inventory %}
+        <section class="network">
+          <div class="network-head">
+            <h2>{{ network.organization }} / {{ network.network }}</h2>
+            <div class="devices">
+              <div>{{ network.rules|length }} règle(s) NAT</div>
+              <div class="device-list">
+                {% for device in network.devices %}
+                  <div class="device-row">
+                    <strong>{{ device.name or device.serial }}</strong>
+                    <span class="subtle">{{ device.model or 'MX' }} · {{ device.serial }}</span>
+                    {% for wan_name in ['wan1', 'wan2'] %}
+                      {% set wan = device.wan_status.get(wan_name, {}) %}
+                      <span class="uplink"><strong>{{ wan_name|upper }} :</strong>
+                        {% if wan.get('ip') %}<code>{{ wan.ip }}</code>{% else %}<span class="subtle">IP indisponible</span>{% endif %}
+                        {% if wan.get('publicIp') %}<span class="subtle">(publique {{ wan.publicIp }})</span>{% endif %}
+                        {% if wan.get('status') %}<span class="subtle">· {{ wan.status }}</span>{% endif %}
+                      </span>
+                    {% endfor %}
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          {% if network.rules %}
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Type / règle</th><th>Entrée publique</th><th>Destination LAN</th><th>IP autorisées</th><th>OS vu par Meraki</th></tr></thead>
+                <tbody>
+                {% for rule in network.rules %}
+                  <tr>
+                    <td><span class="kind">{{ rule.kind }}</span><br>{{ rule.name }}</td>
+                    <td><code>{{ rule.public_ip }}:{{ rule.public_ports }}</code><br><span class="subtle">{{ rule.protocol }} · uplink {{ rule.uplink }}</span></td>
+                    <td><code>{{ rule.destination_ip }}:{{ rule.destination_ports }}</code>{% if rule.client_name %}<br><span class="subtle">{{ rule.client_name }}</span>{% endif %}</td>
+                    <td>{{ rule.allowed_ips|join(', ') }}</td>
+                    <td>{{ rule.os }}</td>
+                  </tr>
+                {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p style="padding:0 20px" class="empty">Aucune règle NAT trouvée pour ce réseau.</p>
+          {% endif %}
+        </section>
+      {% endfor %}
+      <p class="subtle">La configuration NAT Meraki est portée par le réseau. Si plusieurs MX appartiennent au même réseau, les règles affichées s’appliquent à ce réseau. L’OS est la valeur déclarée par l’inventaire clients Meraki et peut être absent ou ancien.</p>
+    {% endif %}
+  </main>
+  <script>
+    document.querySelector('form').addEventListener('submit', function () {
+      const button = this.querySelector('button');
+      button.disabled = true;
+      button.textContent = 'Inventaire en cours…';
+    });
+    const progressSection = document.getElementById('scan-progress');
+    if (progressSection) {
+      const scanId = progressSection.dataset.scanId;
+      const message = document.getElementById('scan-message');
+      const detail = document.getElementById('scan-detail');
+      const bar = document.getElementById('scan-bar');
+      const poll = async () => {
+        try {
+          const response = await fetch('/status/' + encodeURIComponent(scanId), { cache: 'no-store' });
+          if (!response.ok) throw new Error('État du scan indisponible.');
+          const status = await response.json();
+          message.textContent = status.message || 'Inventaire en cours…';
+          bar.max = status.total || 1;
+          bar.value = status.current || 0;
+          detail.textContent = status.total
+            ? `${status.current}/${status.total} organisation(s) parcourue(s)`
+            : 'Récupération de la liste des organisations…';
+          if (status.done) {
+            window.location.reload();
+            return;
+          }
+        } catch (error) {
+          detail.textContent = error.message;
+        }
+        window.setTimeout(poll, 1000);
+      };
+      window.setTimeout(poll, 500);
+    }
+  </script>
+</body>
+</html>
