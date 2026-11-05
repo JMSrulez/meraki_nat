@@ -13,7 +13,8 @@ from dotenv import load_dotenv
 API_ROOT = "https://api.meraki.com/api/v1"
 CLIENT_TIMESPAN_SECONDS = 30 * 24 * 60 * 60
 app = Flask(__name__)
-load_dotenv()
+# Use the local .env settings even when the process inherits a generic PORT value.
+load_dotenv(override=True)
 SCANS = {}
 SCANS_LOCK = threading.Lock()
 
@@ -397,4 +398,4 @@ def scan_status(scan_id):
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=int(os.getenv("PORT", "5000")), debug=False)
+    app.run(host="127.0.0.1", port=int(os.getenv("PORT", "8086")), debug=False)

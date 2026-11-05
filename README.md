@@ -12,15 +12,14 @@ Python 3.10 ou plus récent est recommandé.
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-$env:MERAKI_DASHBOARD_API_KEY = "COLLEZ_ICI_VOTRE_CLE_API_MERAKI"
 py app.py
 ```
 
-Remplacez `COLLEZ_ICI_VOTRE_CLE_API_MERAKI` par une clé API Dashboard active créée depuis le profil de votre utilisateur Meraki (Dashboard > profil > API access). Gardez les guillemets, mais ne mettez pas `Bearer` devant la clé. Cette variable vaut uniquement pour la fenêtre PowerShell courante : définissez-la avant `py app.py` et redémarrez l’application si vous changez la clé.
+Copiez `.env.example` vers `.env`, puis remplacez `remplacer_par_votre_cle_api` par une clé API Dashboard active créée depuis le profil de votre utilisateur Meraki (Dashboard > profil > API access). Gardez la valeur brute, sans `Bearer`.
 
-Puis ouvrir <http://127.0.0.1:5000>.
+Puis ouvrir <http://127.0.0.1:8086>.
 
-Vous pouvez aussi copier `.env.example` vers `.env` et y définir `MERAKI_DASHBOARD_API_KEY`. Le fichier `.env` est chargé au démarrage.
+Le fichier `.env` est chargé au démarrage et ses valeurs remplacent celles déjà présentes dans l'environnement du processus. Pour changer le port, modifiez `PORT` dans `.env` (8086 par défaut), puis redémarrez l'application.
 
 La clé doit avoir les droits de lecture sur les organisations, réseaux, appareils, clients et paramètres d'appliance/firewall. Elle est lue depuis l'environnement, n'est pas demandée dans la page web et n'est pas enregistrée par l'application.
 
